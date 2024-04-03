@@ -1,0 +1,429 @@
+---
+title: "CH3: Describing Data"
+output: html_notebook
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+These are my notes for Chapter 3 of the Book R for Marketing Research
+and Analytics. Most of the code originated from the book but the notes
+are all mine.
+
+You can uncomment and run the code chunk below to get started.
+
+```{r}
+################## Here we load data from chapter 2: 
+
+#getwd()
+#setwd("~/Documents/R")
+#list.files()
+#load("mywork.RData")
+# alternatively the authors have uploaded the data that we will be using online. 
+# you can use the following command to see the data:
+# store.df <- read.csv("http://goo.gl/QPDdMl")
+```
+
+### 3.1 Simulating Data
+
+I skipped making notes on this section. I might go back and redo this if
+needed.
+
+#### 3.1.2
+
+The table count came out differently than the book's. This might be due
+to having used a different seed. (A seed is basically a parameter used
+in pseudo-random number generators, if you know the seed to a generator
+you can predict the output).
+
+### 3.2 Functions to Summarize a Variable
+
+#### 3.2.1 Discrete Variables
+
+Discrete variables are values that can be counted in a finite amount of
+time. These variables mainly deal with counts (hence the word discrete).
+The table function in R can take in a vector (column) of values and
+returns a count. You can then plot the values. I think a good practice
+is to use *factors* since they already contain levels you can use for
+counts.
+
+```{r}
+p1.table <- table(store.df$p1price)
+p1.table
+plot(p1.table)
+```
+
+The table function can take two variables in order to make a *cross
+tab*. This table splits the price of item one based on whether the items
+have a promotion or not:
+
+```{r}
+table(store.df$p1price, store.df$p1prom)
+```
+
+*It is important to note that R uses [m,n] matrix notation (which is
+very common in linear algebra). This means that we have to specify which
+row we are referring to, and then which column.*
+
+```{r}
+p1.table2 <- table(store.df$p1price,store.df$p1prom) #same as before
+p1.table2[,2] / (p1.table2[,1] + p1.table2[,2])
+# divide the second column by the sum of the first column and the second column
+# This is the percentage of items that get a promotion
+
+```
+
+#### 3.2.2 Continuous Variables
+
+Continuous variables can be thought of variables that are impossible to
+actually count in a finite amount of time. Confusing I know. The best
+way I can explain it is by thinking of variables that can be measured to
+an infinite pression like the weather, weight, and velocity. In each
+measure you can keep making scales to get infinitely more accurate. I
+think you can turn continuous variables to discrete variables if you
+keep rounding enough times, or if you group them into different factors.
+For example, for weather you can judge a day by cold, warm, and hot.
+
+The first thing we do with continuous data is explore it's distribution.
+The book provides a helpful table to show you what you can use:
+
+```{r}
+describes <- c('extremes','extremes','central tendency','central tendency','dispersion','dispersion','dispersion','dispersion','points')
+functions <- c('min(x)','max(x)','mean(x)','median(x)','var(x)','sd(x)','IQR(x)','mad(x)','quantile(x,probs=c(...))')
+values <- c('Minimum value','Maximum value','Arithmetic mean','Median','Variance around the mean','Standard deviation (sqrt(var(x)))','Interquartile range,25th-75th percentile','Median absolute deviation (a robust variance estimator)','Percentiles')
+distribution.functions <- data.frame(describes,values,functions)
+(distribution.functions)
+
+```
+
+Quantile functions in action:
+
+```{r}
+(quantile(store.df$p1sales, probs=c(0.05,0.5,0.95))) #Basically made a custom box plot
+(quantile(store.df$p1sales, probs=0:10/10)) # each tenth of percentile
+
+```
+
+R has some descriptive/summary functions. This chunk also shows you how
+thorough you can get in terms of specifying information in data frames:
+
+```{r}
+mysummary.df <- data.frame(matrix(NA, nrow=2, ncol=2))
+names(mysummary.df) <- c("Median Sales", "IQR")
+rownames(mysummary.df) <- c("Product 1","Product 2")
+mysummary.df["Product 1","Median Sales"] <- median(store.df$p1sales)
+mysummary.df["Product 2","Median Sales"] <- median(store.df$p2sales)
+mysummary.df["Product 1","IQR"] <- IQR(store.df$p1sales)
+mysummary.df["Product 2", "IQR"] <- IQR(store.df$p2sales)
+mysummary.df
+```
+
+### 3.3 Summarizing Data Frames
+
+You can use this function as an initial data distribution check.
+
+```{r}
+summary(store.df,digits=2)
+```
+
+#### 3.3.2 describe() using library(psych)
+
+Psych is package for personality, psychometric, and psychological
+research. This package was developed at Northwestern University. A lot
+of these functions include models that can be useful in other types of
+analytics.
+
+You can compare the trimmed mean with the regular mean to see the
+influence of ourliers. Good for discrete values.
+
+### Notes on {psych} describe(): Skew, Kurtosis, MAD, SD, SE and Trimmed Mean
+
+#### Skew and Kurtosis
+
+The mathematical definition of Kurtosis is the fourth moment (moments
+are a quantitative measure of the distribution. Here is a visual
+representation of the moments:
+
+![Source:
+<https://www.youtube.com/watch?v=TM033GCU-SY&t=1s>](images/Screen%20Shot%202023-05-03%20at%206.30.32%20PMPDT.png)
+
+As you can see each moment follows a pattern of having a measure of the
+expected value raised to a power. The fourth moment (kurtosis) measures
+the distribution of outliers in a normal distribution. As
+[Westfall](https://www.tandfonline.com/doi/abs/10.1080/00031305.2014.917055)
+puts it, kurtosis does not tell you anything about the peak of the
+distribution but the propensity of the data to produce outliers. You can
+intuitively see this by looking at the points that are near the mean
+would not greatly contribute to the calculation as they would be small
+to begin with (think of the instances where the value are less than 1
+and then raised to the power of 4).
+
+A normal distribution is expected to have a Kurtosis of 3 (Mesokurtic).
+The smallest value for kurtosis a distribution can have is 1 and it can
+go as high as infinity. Distributions that have a kurtosis of greater
+than 3 are called *leptokurtic*, and distributions that have a kurtosis
+of less than 3 are called *platykurtic*. An example of a platykurtic distribution would be a uniform distribution.
+
+The {psych} descriptive function uses excess kurtosis which means it
+subtracts 3 from its kurtosis value. 
+
+Kurtosis - Skew - mad - sd- se - trimmed mean
+
+```{r}
+library(psych)
+(describe(store.df))
+## only relevant columns: 
+(describe(store.df[,c(2,4:9)]))
+```
+
+#### 3.3.3 Recommended approach for Inspecting Data
+
+This section goes over an 8 step checklist on doing an innicial data
+quality check
+
+```{r}
+#1.) import using read.csv()
+online.data <- read.csv('http://goo.gl/QPDdMl')
+#2.) convert to df using data.frame() function -
+online.data <- data.frame(online.data) #read.csv command made this redundant 
+#3.) use the dim command to check # of rows and columns
+(dim(online.data)) # 2080 by 10
+#4.) use head() abd tail() functions to check first n and last n values
+(head(online.data));(tail(online.data))
+#5.) use some() from the "car" package to examine random rows
+library(car);(some(online.data,5))
+#6.) check data structure using the str() command. Focus on data types
+(str(online.data))
+#7.) summary() shows you data distribution. Also shows outliers
+(summary(online.data))
+#8.) use describe() from the psych library to check trimmed mean and skew
+(describe(online.data[,c(2,4:9)]))
+```
+
+#### 3.3.4 apply()
+
+It's basically a for loop but for your dataframe. You use the MARGIN
+parameter to specify if you want to run it through the rows (MARGIN =1)
+or columns (MARGIN = 2) or both simultaniously (MARGIN = c(1,2))
+
+```{r}
+apply(store.df[,2:9],MARGIN = 2, FUN = mean)
+
+```
+
+Anonymous Functions (Check Section 2.7)
+
+```{r}
+apply(store.df[,2:9], 2, function(x) { ((mean(x)-median(x))/median(x))*100} ) 
+#tells you the percentage of the median that the mean is off by
+```
+
+The mean is higher than the median, this might suggest that there are
+people
+
+### 3.4 Single Variable Functions
+
+#### 3.4.1 Histograms
+
+This section of the book can be referenced when creating different
+plots.
+
+```{r}
+hist(store.df$p1sales,
+     main="Product 1 Weekly Sales Frequencies, All Stores",
+     xlab="Product 1 Sales (Units)",
+     ylab="Count",
+     breaks = 30,
+     col = "seagreen")
+
+```
+
+You can use the colors() command to see all the built in colors you can
+use:
+
+```{r}
+colors()
+```
+
+We can change our histogram to go after density by adding freq=False.
+This makes it possible for us to overly other graphs since it's more
+compatible.
+
+```{r}
+hist(store.df$p1sales,
+     main="Product 1 Weekly Sales Frequencies, All Stores",
+     xlab="Product 1 Sales (Units)",
+     ylab="Relative Frequency (Density)",
+     breaks = 30,
+     col = "darkred",
+     freq = FALSE # plot density not count
+    # xaxt = "n" #This takes out our x axis
+     
+       )
+#axis(side=1, at = seq(60,300, by=20))
+#lines(density(store.df$p1sales,bw=10),type="l", col="blue", lwd=2) #This makes the density line
+```
+
+Axis is a seperate command that modifies the axis of the graph.
+
+```{r}
+hist(store.df$p2sales,
+     main="Product 1 VS 2 Weekly Sales Frequencies, All Stores",
+     xlab="Product 2 Sales (Units)",
+     ylab="Density",
+     breaks = 30,
+     col = "lightblue",
+     freq = FALSE,
+     xaxt = "n"
+     
+       )
+axis(side=1, at = seq(60,300, by=20)) #4 sides, 1 for each side
+lines(density(store.df$p2sales,bw=10),type="l", col="blue", lwd=2) #This makes the density line
+```
+
+#### 3.4.2 BoxPlots
+
+Boxplots are rudimentary visualizations of data distribution. They tell
+us the 1st,2nd, and 3rd quantile by using a box. They are useful in
+comparison since they can be plotted side by side:
+
+```{r}
+boxplot(p2sales ~ storeNum, # response variable ~ explanatory variable
+        data = store.df, #saves you from rewriting the df name
+        xlab="Weekly sales", 
+        ylab="P2", 
+        las = 1, #forces text to appear horizontal
+        main = "Weekly sales of P2 By store", 
+        col = "red",
+        horizontal = TRUE) #This rotates the plot
+```
+
+We can also custom label the y-axis by adjusting the "at" parameter in
+the axis() function:
+
+```{r}
+plot.new()
+boxplot(p2sales ~ p2prom,
+        data = store.df, 
+        horizontal = TRUE,
+        yaxt="n", #gets rid of the x axis text
+        ylab = "P2 promoted in store?",
+        xlab = "Weekly Sales",
+        main = "Weekly sales of P2 with and without prmotion"
+        )
+axis(side=2, at = c(1,2), labels = c("No","Yes"))
+```
+
+### 3.4.3 QQ Plot to Check Normality
+
+Quantile-quantile plots graph the theoretical distribution (assuming
+normality) vs the actual distribution of the plot. The more normal a
+distribution is the more in line it will be. A positive skew will show
+itself by being above the line.
+
+```{r}
+qqnorm(store.df$p1sales) #Makes the plot
+qqline(store.df$p1sales) #Makes the line
+```
+
+We can try to convert the data using a log distribution to see if it
+follows a more. normal distribution:
+
+```{r}
+qqnorm(log(store.df$p1sales))
+qqline(log(store.df$p1sales))
+```
+
+This transformation follows a normal distribution much more closely.
+
+The book tells us to try to transform the data using a logarithmic
+transformation in order to make the data more normal but this article
+tells us that IRL this is usually not the case. Instead, use newer
+analytic methods that are not dependent on the distribution the data,
+such as generalized estimating equations (GEE):
+<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4120293/>
+
+# HW: Explain all the different types of skews shown by a qq plot
+
+### 3.4.4 Empirical Cumulative Distribution Function (ECDF)
+
+This is a standard distribution function you learn in stats class. It
+should ad up to 100%. ECDFs can be used to highlight discontinuities,
+tails, and specific points of interest.
+
+```{r}
+plot(ecdf(store.df$p1sales)#single value function
+     , main = "Cumulative distribution of P1 Weekly Sales"
+     , ylab = "Cumulative Proportion"
+     , xlab = c("P1 weekly sales, all stores","90% of weeks sold <= 171 units")
+     , yaxt = "n"
+     )
+axis(side = 2 #y axis
+     , at=seq(0,1, by=0.1) #tick marks
+     , las =1
+     , labels = paste(seq(0,100,by=10), "%", sep="") #turns labels to percentages
+     )
+
+abline(h=0.9, lty =3) #h is for horizontal,lty is for dotted
+abline(v=quantile(store.df$p1sales, pr=0.9), lty=3) #uses quantile to get y value
+abline(h=0.1, lty =3) 
+abline(v=quantile(store.df$p1sales, pr=0.1), lty=3)
+#curve(pnorm(x, mean(store.df$p1sales), sd(store.df$p1sales)),from = 50, to = 250, add = TRUE, col='blue', lwd = 2)
+```
+
+You can see the long tails in the distribution. This distribution in
+particular show a strong right skew meaning that there are lots of
+points that are higher than the mean.
+
+### 3.4.5 By() and aggregate()
+
+These are basically pivot tables
+
+```{r}
+by(store.df$p1sales, store.df$storeNum, mean)
+```
+
+You can also group it by more than one factor, but the result gets
+messier:
+
+```{r}
+by(store.df$p1sales, list(store.df$storeNum,store.df$Year), mean)
+```
+
+The aggregate function on the other hand does the same thing but gives
+you a nice dataframe.
+
+```{r}
+p1sales.sum <- aggregate(store.df$p1sales, by= list(country=store.df$country,year=store.df$Year), sum)
+p1sales.sum
+```
+
+### 3.4.6 Maps
+
+For this section make sure to install rworldmap and rcolorbrewer Our
+list of countries needs to match the codes that are used by R.
+joinCountryData2Map uses the joinCode parameter to specify what
+variables correspond to which areas to map. The result is a map object.
+
+```{r}
+p1sales.sum <- aggregate(store.df$p1sales, by=list(country=store.df$country), sum)
+library(rworldmap)
+library(RColorBrewer)
+p1sales.map <- joinCountryData2Map(
+  p1sales.sum, 
+  joinCode = "ISO2", #This is the codes we are using
+  nameJoinColumn = "country")
+
+```
+
+We can now finally plot our data in a choropleth chart using the
+mapCountryData() function:
+
+```{r}
+mapCountryData(p1sales.map, 
+               nameColumnToPlot = "x", #default column name from our aggregate data
+               mapTitle = "Total P1 sales by Country",
+               colourPalette = brewer.pal(7,"Greens"),
+               catMethod = "fixedWidth",
+               addLegend = FALSE)
+```
